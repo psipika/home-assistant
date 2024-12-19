@@ -1,0 +1,6 @@
+<network ipv6='yes'>
+  <name>bridged_network</name>
+  <forward mode='bridge'/>
+  <bridge name='virbr1'/>
+</network>
+
