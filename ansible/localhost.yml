@@ -1,0 +1,13 @@
+---
+- name: Playbooks for localhost
+  hosts: localhost
+  gather_facts: true
+
+  tasks:
+    - name: Include all roles that apply to localhost
+      ansible.builtin.include_role:
+        name: "{{ item }}"
+      tags: "{{ ansible_run_tags }}"
+      loop:
+        - homeassistant
+...

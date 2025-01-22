@@ -1,0 +1,13 @@
+---
+- name: Retrieve latest homeassistant image
+  delegate_to: localhost
+  run_once: true
+  ansible.builtin.import_tasks:
+    file: get_homeassistant_image.yml
+  tags: ["never", "setup-homeassistant", "download-homeassistant-image"]
+
+- name: Provision HA VM
+  ansible.builtin.import_tasks:
+    file: provision_homeassistant_vm.yml
+  tags: ["never", "setup-homeassistant", "provision-homeassistant"]
+...

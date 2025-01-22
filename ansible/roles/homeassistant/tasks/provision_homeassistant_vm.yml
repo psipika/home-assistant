@@ -1,0 +1,74 @@
+---
+- name: Install lxml and provisioning tools
+  become: true
+  ansible.builtin.package:
+    update_cache: true
+    name:
+      - python3-lxml
+      - libguestfs-tools
+      - python3-libvirt
+  tags: ["never", "setup-homeassistant", "provision-homeassistant"]
+
+- name: Set host interface name
+  ansible.builtin.set_fact:
+    homeassistant_host_ifname: "{{ hypervisor_interface_name | default(homeassistant_host_ifname) }}"
+    homeassistant_image_name: "haos_ova-{{ homeassistant_version }}.qcow2"
+  tags: ["never", "setup-homeassistant", "provision-homeassistant"]
+
+- name: Get a list all VMs
+  become: true
+  community.libvirt.virt:
+    command: list_vms
+  register: all_vms
+  tags: ["never", "setup-homeassistant", "provision-homeassistant"]
+
+- name: Show all VMs
+  ansible.builtin.debug:
+    var: all_vms
+  tags: ["never", "setup-homeassistant", "provision-homeassistant"]
+
+- name: Provision VM if it does not exist
+  when: homeassistant_vm_name not in all_vms.list_vms
+  tags: ["never", "setup-homeassistant", "provision-homeassistant"]
+  block:
+    - name: Copy over VM image
+      become: true
+      ansible.builtin.copy:
+        src: "assets/{{ homeassistant_image_name }}"
+        dest: "{{ homeassistant_image_dir }}/{{ homeassistant_image_name }}"
+        mode: "0600"
+
+    - name: Create the VM with virt-install
+      become: true
+      ansible.builtin.command: |
+        virt-install --name {{ homeassistant_vm_name}}
+        --description "Home Assistant OS"
+        --os-variant=generic
+        --ram=4096
+        --vcpus=2
+        --disk {{ homeassistant_image_dir }}/{{ homeassistant_image_name }},bus=scsi
+        --controller type=scsi,model=virtio-scsi
+        --import
+        --graphics none
+        --network type=direct,source={{ homeassistant_host_ifname }},source_mode=bridge,model=virtio
+        --boot uefi
+      when: homeassistant_use_template | bool == False
+      changed_when: true
+
+    - name: Create the VM from template
+      become: true
+      community.libvirt.virt:
+        command: define
+        xml: "{{ lookup('template', homeassistant_vm_name + '.xml.j2' ) }}"
+      when: homeassistant_use_template | bool == True
+
+- name: Start the VM
+  become: true
+  community.libvirt.virt:
+    name: "{{ homeassistant_vm_name }}"
+    state: running
+  register: vm_start_result
+  until: vm_start_result is success
+  retries: 15
+  delay: 2
+...

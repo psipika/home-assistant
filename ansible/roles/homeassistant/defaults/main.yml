@@ -1,0 +1,11 @@
+---
+homeassistant_version: 14.1
+homeassistant_vm_name: haos
+homeassistant_vm_ram_mb: 4096
+homeassistant_vm_vcpus: 2
+homeassistant_vm_mac_addr: '52:54:00:fc:07:08'
+homeassistant_host_ifname: 'eno2'
+homeassistant_vm_tap_ifname: 'macvtap1'
+homeassistant_image_dir: "/var/lib/libvirt/images"
+homeassistant_use_template: true
+...

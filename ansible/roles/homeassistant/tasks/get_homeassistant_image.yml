@@ -1,0 +1,69 @@
+---
+- name: Set asset version and URL
+  ansible.builtin.set_fact:
+    asset_version: "{{ homeassistant_version | default('latest') }}"
+    asset_url: |-
+      https://api.github.com/repos/home-assistant/operating-system/releases
+  tags: ["never", "setup-homeassistant", "download-homeassistant-image"]
+
+- name: Get specified version of homeassistant image
+  ansible.builtin.uri:
+    url: "{{ asset_url + '/latest'
+          if asset_version == 'latest' else
+           asset_url + '/tags/' + asset_version }}"
+    return_content: true
+  register: json_response
+  tags: ["never", "setup-homeassistant", "download-homeassistant-image"]
+
+- name: Set name of image
+  ansible.builtin.set_fact:
+    homeassistant_image_name: "haos_ova-{{ json_response.json.tag_name }}.qcow2"
+  tags: ["never", "setup-homeassistant", "download-homeassistant-image"]
+
+- name: Set name of asset
+  ansible.builtin.set_fact:
+    asset_name: "{{ homeassistant_image_name }}.xz"
+  tags: ["never", "setup-homeassistant", "download-homeassistant-image"]
+
+- name: Check if image already exists
+  ansible.builtin.stat:
+    path: "assets/{{ homeassistant_image_name }}"
+  register: image_file
+  tags: ["never", "setup-homeassistant", "download-homeassistant-image"]
+
+- name: Check if asset already exists
+  ansible.builtin.stat:
+    path: "assets/{{ asset_name }}"
+  register: asset_file
+  tags: ["never", "setup-homeassistant", "download-homeassistant-image"]
+
+- name: Download and decompress image
+  when: not image_file.stat.exists
+  block:
+    - name: Find browser download url
+      ansible.builtin.set_fact:
+        asset_url: "{{ item['browser_download_url'] }}"
+      when: item.name == asset_name
+      loop: "{{ json_response.json.assets }}"
+      tags: ["never", "setup-homeassistant", "download-homeassistant-image"]
+
+    - name: Create assets directory
+      ansible.builtin.command:
+        cmd: mkdir assets
+        creates: assets
+      tags: ["never", "setup-homeassistant", "download-homeassistant-image"]
+
+    - name: Download the asset
+      ansible.builtin.get_url:
+        url: "{{ asset_url }}"
+        dest: assets
+        mode: '0644'
+      when: not asset_file.stat.exists
+      tags: ["never", "setup-homeassistant", "download-homeassistant-image"]
+
+    - name: Decompress asset
+      ansible.builtin.command:
+        cmd: "xz -d assets/{{ asset_name }}"
+        creates: "assets/{{ homeassistant_image_name }}"
+      tags: ["never", "setup-homeassistant", "download-homeassistant-image"]
+...
