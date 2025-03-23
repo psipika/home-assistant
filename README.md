@@ -311,7 +311,7 @@ Use your web browser to connect to the `<IP>:8123` to finish configuring the VM.
 
 ![](images/homeassistant_onboarding.png)
 
-### When Something Goes Wrong
+## When Something Goes Wrong
 
 If something should go wrong, you can always destroy/undefine the VM and start
 from scratch (after fixing the problem that caused the failure):
@@ -322,6 +322,43 @@ $ sudo virsh undefine --nvram haos
 Domain 'haos' has been undefined
 ```
 
+### SWTPM_NVRAM_Lock_Lockfile: Could not open lockfile: Permission denied
+
+On a Ubuntu 22.04 host, it's possible to hit this particular error.
+Ansible will fail with:
+
+```
+An exception occurred during task execution. To see the full traceback, use -vvv. The error was: libvirt.libvirtError: internal error: Could not run '/usr/bin/swtpm_setup'. exitstatus: 1; Check error log '/var/log/swtpm/libvirt/qemu/haos-swtpm.log' for details.
+fatal: [limonka]: FAILED! => {
+    "attempts": 15,
+    "changed": false
+}
+
+MSG:
+
+internal error: Could not run '/usr/bin/swtpm_setup'. exitstatus: 1; Check error log '/var/log/swtpm/libvirt/qemu/haos-swtpm.log' for details.
+```
+
+A quick search online will lead to [this issue](https://github.com/stefanberger/swtpm/issues/763) with AppArmor.
+
+The fix: disable apparmor for `swtpm`:
+
+```
+sudo aa-complain /etc/apparmor.d/local/usr.bin.swtpm
+```
+
+If that doesn't help, download and build from source:
+- [`libtpms` v0.10.0](https://github.com/stefanberger/libtpms/releases/tag/v0.10.0)
+- [`swtpm` v0.10.0](https://github.com/stefanberger/swtpm/releases/tag/v0.10.0)
+
+Follow the steps outlined in [this StackOverflow answer](https://stackoverflow.com/a/71265345/419639)
+
+Then:
+
+```
+$ sudo chown -R swtpm:root /var/lib/swtpm-localca
+$ sudo systemctl restart libvirtd
+```
 
 ## References and Links
 
